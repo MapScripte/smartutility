@@ -1,0 +1,1683 @@
+<!DOCTYPE html>
+<html lang="kk" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Utility KZ — Коммуналдық қызметтер бір терезеде</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#1e3a8a', // қою көк
+                        secondary: '#2563eb', // көк
+                        accent: '#06b6d4', // cyan
+                        surface: '#f8fafc',
+                        darkBg: '#0f172a'
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Leaflet CSS for Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        #map { height: 300px; width: 100%; border-radius: 0.5rem; z-index: 10; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 h-full flex flex-col font-sans select-none">
+
+    <!-- TOP NAVIGATION BAR -->
+    <header class="bg-primary text-white shadow-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+            <!-- Logo -> returns to home -->
+            <div onclick="switchTab('home')" class="flex items-center space-x-3 cursor-pointer group">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-secondary to-accent flex items-center justify-center text-white font-bold text-xl shadow-lg group-hover:scale-105 transition">
+                    <i class="fa-solid fa-city"></i>
+                </div>
+                <div>
+                    <h1 id="app-brand-title" class="text-lg font-bold tracking-tight">Smart Utility KZ</h1>
+                    <p id="app-brand-subtitle" class="text-xs text-cyan-200">Коммуналдық қызметтер бір терезеде</p>
+                </div>
+            </div>
+
+            <!-- City Selector & Controls -->
+            <div class="flex items-center space-x-3">
+                <div class="relative">
+                    <select id="global-city-select" onchange="changeGlobalCity(this.value)" class="bg-blue-900/80 border border-cyan-500/50 text-white text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-accent cursor-pointer">
+                        <option value="Орал">Орал</option>
+                        <option value="Алматы">Алматы</option>
+                        <option value="Атырау">Атырау</option>
+                        <option value="Ақтөбе">Ақтөбе</option>
+                    </select>
+                </div>
+
+                <!-- User Account Button -->
+                <button onclick="openAuthModal()" id="auth-btn" class="bg-secondary hover:bg-blue-600 text-white px-3.5 py-1.5 rounded-lg text-sm font-medium transition flex items-center space-x-1.5 shadow">
+                    <i class="fa-solid fa-user"></i>
+                    <span id="auth-btn-text">Кіру</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- DESKTOP / MAIN NAVIGATION TABS -->
+    <nav class="hidden md:block bg-white border-b border-slate-200 shadow-sm sticky top-[61px] z-40">
+        <div class="max-w-7xl mx-auto px-4 flex space-x-6 overflow-x-auto text-sm font-medium py-2.5">
+            <button onclick="switchTab('home')" class="nav-tab text-slate-600 hover:text-secondary flex items-center space-x-2 py-1 transition active-tab" data-target="home">
+                <i class="fa-solid fa-house"></i><span>Басты бет</span>
+            </button>
+            <button onclick="switchTab('homes')" class="nav-tab text-slate-600 hover:text-secondary flex items-center space-x-2 py-1 transition" data-target="homes">
+                <i class="fa-solid fa-building"></i><span>Менің үйлерім</span>
+            </button>
+            <button onclick="switchTab('meters')" class="nav-tab text-slate-600 hover:text-secondary flex items-center space-x-2 py-1 transition" data-target="meters">
+                <i class="fa-solid fa-gauge"></i><span>Есептегіштер</span>
+            </button>
+            <button onclick="switchTab('payments')" class="nav-tab text-slate-600 hover:text-secondary flex items-center space-x-2 py-1 transition" data-target="payments">
+                <i class="fa-solid fa-wallet"></i><span>Төлемдер</span>
+            </button>
+            <button onclick="switchTab('requests')" class="nav-tab text-slate-600 hover:text-secondary flex items-center space-x-2 py-1 transition" data-target="requests">
+                <i class="fa-solid fa-file-lines"></i><span>Өтінімдер</span>
+            </button>
+            <button onclick="switchTab('issues')" class="nav-tab text-slate-600 hover:text-secondary flex items-center space-x-2 py-1 transition" data-target="issues">
+                <i class="fa-solid fa-triangle-exclamation"></i><span>Мәселе туралы хабарлау</span>
+            </button>
+            <button onclick="switchTab('dispatcher')" class="nav-tab text-slate-600 hover:text-secondary flex items-center space-x-2 py-1 transition" data-target="dispatcher">
+                <i class="fa-solid fa-headset"></i><span>Диспетчер</span>
+            </button>
+            <button onclick="switchTab('cabinet')" class="nav-tab text-slate-600 hover:text-secondary flex items-center space-x-2 py-1 transition" data-target="cabinet">
+                <i class="fa-solid fa-id-card"></i><span>Жеке кабинет</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- MAIN CONTAINER -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 py-6 mb-20 md:mb-6 overflow-y-auto">
+
+        <!-- 1. HOME TAB -->
+        <section id="tab-home" class="tab-content space-y-6">
+            <!-- Hero banner -->
+            <div class="bg-gradient-to-r from-primary via-blue-800 to-secondary rounded-2xl p-6 md:p-10 text-white shadow-xl relative overflow-hidden flex flex-col md:flex-row items-center justify-between">
+                <div class="relative z-10 max-w-xl space-y-4">
+                    <span id="home-city-badge" class="bg-cyan-500 text-slate-900 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">Орал қаласы</span>
+                    <h2 id="home-main-title" class="text-3xl md:text-4xl font-extrabold tracking-tight">Коммуналдық қызметтерді үйден шықпай басқарыңыз</h2>
+                    <p class="text-slate-200 text-sm md:text-base">Бір жүйеде есептегіштерді өткізіңіз, шоттарды төлеңіз, мәселелер бойынша хабарлаңыз және үйлеріңізді қадағалаңыз.</p>
+                    <div class="flex flex-wrap gap-3 pt-2">
+                        <button onclick="switchTab('meters')" class="bg-cyan-500 hover:bg-cyan-400 text-slate-900 font-semibold px-5 py-2.5 rounded-xl shadow transition flex items-center space-x-2">
+                            <i class="fa-solid fa-gauge-high"></i><span>Көрсеткіш жіберу</span>
+                        </button>
+                        <button onclick="switchTab('payments')" class="bg-white/10 hover:bg-white/20 border border-white/30 text-white font-semibold px-5 py-2.5 rounded-xl backdrop-blur transition flex items-center space-x-2">
+                            <i class="fa-solid fa-credit-card"></i><span>Шоттарды төлеу</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="mt-6 md:mt-0 relative z-10 text-cyan-300 text-7xl md:text-9xl opacity-20 md:opacity-30">
+                    <i class="fa-solid fa-city"></i>
+                </div>
+            </div>
+
+            <!-- Quick Access Grid -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                <div onclick="switchTab('homes')" class="bg-white p-5 rounded-xl shadow-sm hover:shadow-md border border-slate-100 cursor-pointer transition group flex flex-col items-center text-center">
+                    <div class="w-12 h-12 rounded-xl bg-blue-50 text-secondary flex items-center justify-center text-xl mb-3 group-hover:bg-secondary group-hover:text-white transition">
+                        <i class="fa-solid fa-house-chimney"></i>
+                    </div>
+                    <h3 class="font-bold text-slate-800 text-sm">Менің үйлерім</h3>
+                    <p class="text-xs text-slate-500 mt-1">Тұрғын үйлер мен лицевой счеттар</p>
+                </div>
+                <div onclick="switchTab('meters')" class="bg-white p-5 rounded-xl shadow-sm hover:shadow-md border border-slate-100 cursor-pointer transition group flex flex-col items-center text-center">
+                    <div class="w-12 h-12 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center text-xl mb-3 group-hover:bg-cyan-500 group-hover:text-white transition">
+                        <i class="fa-solid fa-gauge"></i>
+                    </div>
+                    <h3 class="font-bold text-slate-800 text-sm">Есептегіштер</h3>
+                    <p class="text-xs text-slate-500 mt-1">Көрсеткіш жіберу және фото тіркеу</p>
+                </div>
+                <div onclick="switchTab('payments')" class="bg-white p-5 rounded-xl shadow-sm hover:shadow-md border border-slate-100 cursor-pointer transition group flex flex-col items-center text-center">
+                    <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl mb-3 group-hover:bg-emerald-500 group-hover:text-white transition">
+                        <i class="fa-solid fa-wallet"></i>
+                    </div>
+                    <h3 class="font-bold text-slate-800 text-sm">Коммуналдық төлемдер</h3>
+                    <p class="text-xs text-slate-500 mt-1">Шоттарды тез әрі оңай төлеу</p>
+                </div>
+                <div onclick="openAccountOpenModal()" class="bg-white p-5 rounded-xl shadow-sm hover:shadow-md border border-slate-100 cursor-pointer transition group flex flex-col items-center text-center">
+                    <div class="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-xl mb-3 group-hover:bg-purple-500 group-hover:text-white transition">
+                        <i class="fa-solid fa-file-circle-plus"></i>
+                    </div>
+                    <h3 class="font-bold text-slate-800 text-sm">Лицевой счет ашу</h3>
+                    <p class="text-xs text-slate-500 mt-1">Жаңа үйге шот ашу өтінімі</p>
+                </div>
+                <div onclick="openAccountTransferModal()" class="bg-white p-5 rounded-xl shadow-sm hover:shadow-md border border-slate-100 cursor-pointer transition group flex flex-col items-center text-center">
+                    <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl mb-3 group-hover:bg-amber-500 group-hover:text-white transition">
+                        <i class="fa-solid fa-right-left"></i>
+                    </div>
+                    <h3 class="font-bold text-slate-800 text-sm">Лицевой счетты ауыстыру</h3>
+                    <p class="text-xs text-slate-500 mt-1">Меншік иесін өзгерту</p>
+                </div>
+                <div onclick="switchTab('issues')" class="bg-white p-5 rounded-xl shadow-sm hover:shadow-md border border-slate-100 cursor-pointer transition group flex flex-col items-center text-center">
+                    <div class="w-12 h-12 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center text-xl mb-3 group-hover:bg-rose-500 group-hover:text-white transition">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                    </div>
+                    <h3 class="font-bold text-slate-800 text-sm">Мәселе туралы хабарлау</h3>
+                    <p class="text-xs text-slate-500 mt-1">Апат пен ақауларды тіркеу</p>
+                </div>
+                <div onclick="switchTab('requests')" class="bg-white p-5 rounded-xl shadow-sm hover:shadow-md border border-slate-100 cursor-pointer transition group flex flex-col items-center text-center">
+                    <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl mb-3 group-hover:bg-indigo-500 group-hover:text-white transition">
+                        <i class="fa-solid fa-clipboard-list"></i>
+                    </div>
+                    <h3 class="font-bold text-slate-800 text-sm">Менің өтінімдерім</h3>
+                    <p class="text-xs text-slate-500 mt-1">Статустар мен тарихты қарау</p>
+                </div>
+                <div onclick="switchTab('cabinet')" class="bg-white p-5 rounded-xl shadow-sm hover:shadow-md border border-slate-100 cursor-pointer transition group flex flex-col items-center text-center">
+                    <div class="w-12 h-12 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center text-xl mb-3 group-hover:bg-teal-500 group-hover:text-white transition">
+                        <i class="fa-solid fa-id-card"></i>
+                    </div>
+                    <h3 class="font-bold text-slate-800 text-sm">Жеке кабинет</h3>
+                    <p class="text-xs text-slate-500 mt-1">Профиль және хабарламалар</p>
+                </div>
+            </div>
+
+            <!-- City Info & Accidents / Announcements -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 bg-white rounded-xl p-5 shadow-sm border border-slate-100 space-y-4">
+                    <div class="flex items-center justify-between border-b pb-3">
+                        <h3 class="font-bold text-slate-800 flex items-center space-x-2">
+                            <i class="fa-solid fa-bullhorn text-secondary"></i>
+                            <span>Апаттар және жоспарлы жұмыстар</span>
+                        </h3>
+                        <span id="current-city-label" class="text-xs bg-blue-50 text-secondary px-2.5 py-1 rounded-md font-semibold">Орал</span>
+                    </div>
+                    <div id="city-announcements-list" class="space-y-3">
+                        <!-- Filled dynamically -->
+                    </div>
+                </div>
+
+                <!-- Tariff Cards Overview -->
+                <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100 space-y-4">
+                    <h3 class="font-bold text-slate-800 flex items-center space-x-2 border-b pb-3">
+                        <i class="fa-solid fa-tags text-cyan-600"></i>
+                        <span>Демонстрациялық тарифтер</span>
+                    </h3>
+                    <div id="city-tariffs-list" class="space-y-2.5 text-sm">
+                        <!-- Filled dynamically -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. MY HOMES TAB -->
+        <section id="tab-homes" class="tab-content hidden space-y-6">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-800">Менің үйлерім</h2>
+                    <p class="text-sm text-slate-500">Тұрғын үйлеріңізді тіркеңіз, лицевой счеттарды және цифрлық паспорттарды басқарыңыз.</p>
+                </div>
+                <button onclick="openAddHomeModal()" class="bg-secondary hover:bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium shadow transition flex items-center space-x-2">
+                    <i class="fa-solid fa-plus"></i><span>Жаңа үй қосу</span>
+                </button>
+            </div>
+
+            <div id="homes-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Homes loaded dynamically -->
+            </div>
+        </section>
+
+        <!-- 3. METERS & READINGS TAB -->
+        <section id="tab-meters" class="tab-content hidden space-y-6">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-800">Есептегіштер және көрсеткіштер</h2>
+                    <p class="text-sm text-slate-500">Ағымдағы көрсеткіштерді енгізіп, есептегіш фотосын тіркеңіз.</p>
+                </div>
+                <button onclick="openAddMeterModal()" class="bg-secondary hover:bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium shadow transition flex items-center space-x-2">
+                    <i class="fa-solid fa-plus"></i><span>Есептегіш қосу</span>
+                </button>
+            </div>
+
+            <!-- Meter Submission Form Card -->
+            <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100 space-y-4">
+                <h3 class="font-bold text-slate-800 border-b pb-3 flex items-center space-x-2">
+                    <i class="fa-solid fa-file-pen text-secondary"></i>
+                    <span>Жаңа көрсеткіш жіберу</span>
+                </h3>
+                <form id="meter-submission-form" onsubmit="submitMeterReading(event)" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Үйді таңдаңыз</label>
+                        <select id="sub-home-select" onchange="updateMetersForHome(this.value)" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-secondary">
+                            <!-- Filled dynamically -->
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Есептегіш / Қызмет</label>
+                        <select id="sub-meter-select" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-secondary">
+                            <!-- Filled dynamically -->
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Ағымдағы көрсеткіш (сан)</label>
+                        <input type="number" step="0.01" id="sub-reading-val" required placeholder="Мыс: 145.5" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-secondary">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Есептік кезең</label>
+                        <input type="text" id="sub-period" value="Қазан 2026" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-secondary">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Есептегіш фотосы (дәлел үшін)</label>
+                        <div class="flex items-center space-x-3">
+                            <input type="file" id="sub-meter-photo" accept="image/*" capture="environment" onchange="previewMeterPhoto(event)" class="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-secondary hover:file:bg-blue-100 cursor-pointer">
+                        </div>
+                        <div id="photo-preview-container" class="mt-2 hidden">
+                            <img id="photo-preview-img" class="w-24 h-24 object-cover rounded-lg border shadow-sm">
+                        </div>
+                    </div>
+                    <div class="md:col-span-3 flex justify-end">
+                        <button type="submit" class="bg-secondary hover:bg-blue-600 text-white font-semibold px-6 py-2.5 rounded-xl text-sm shadow transition flex items-center space-x-2">
+                            <i class="fa-solid fa-paper-plane"></i><span>Көрсеткішті жіберу және есептеу</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Meters List & History Filter -->
+            <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100 space-y-4">
+                <div class="flex items-center justify-between border-b pb-3">
+                    <h3 class="font-bold text-slate-800 flex items-center space-x-2">
+                        <i class="fa-solid fa-clock-rotate-left text-secondary"></i>
+                        <span>Көрсеткіштер және есептер тарихы</span>
+                    </h3>
+                </div>
+                <div id="meters-history-list" class="space-y-3">
+                    <!-- History filled dynamically -->
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. PAYMENTS TAB -->
+        <section id="tab-payments" class="tab-content hidden space-y-6">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-800">Коммуналдық төлемдер</h2>
+                    <p class="text-sm text-slate-500">Төленбеген шоттарды қараңыз және демонстрациялық төлем жасаңыз.</p>
+                </div>
+                <button id="pay-all-btn" onclick="payAllBills()" class="hidden bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-semibold shadow transition flex items-center space-x-2">
+                    <i class="fa-solid fa-check-double"></i><span>Барлығын төлеу</span>
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Unpaid Bills -->
+                <div class="lg:col-span-2 space-y-4">
+                    <h3 class="font-bold text-slate-800 flex items-center space-x-2">
+                        <i class="fa-solid fa-file-invoice-dollar text-amber-500"></i>
+                        <span>Төленмеген шоттар мен қарыздар</span>
+                    </h3>
+                    <div id="unpaid-bills-list" class="space-y-3">
+                        <!-- Filled dynamically -->
+                    </div>
+                </div>
+
+                <!-- Payment History -->
+                <div class="space-y-4">
+                    <h3 class="font-bold text-slate-800 flex items-center space-x-2">
+                        <i class="fa-solid fa-receipt text-emerald-600"></i>
+                        <span>Төлемдер тарихы</span>
+                    </h3>
+                    <div id="paid-history-list" class="space-y-3">
+                        <!-- Filled dynamically -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 5. REQUESTS TAB -->
+        <section id="tab-requests" class="tab-content hidden space-y-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-800">Менің өтінімдерім</h2>
+                    <p class="text-sm text-slate-500">Барлық жіберілген өтінімдер, лицевой счет ашу және мәселелер статусы.</p>
+                </div>
+            </div>
+
+            <div id="user-requests-list" class="space-y-3">
+                <!-- Requests filled dynamically -->
+            </div>
+        </section>
+
+        <!-- 6. ISSUES & ACCIDENTS TAB -->
+        <section id="tab-issues" class="tab-content hidden space-y-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-800">Мәселе туралы хабарлау</h2>
+                    <p class="text-sm text-slate-500">Су, кәріз, жылу немесе электр желісіндегі ақау туралы фото/видеомен хабарлаңыз.</p>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100 space-y-4">
+                <form id="issue-report-form" onsubmit="submitIssueReport(event)" class="space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Үйді таңдаңыз</label>
+                            <select id="issue-home-select" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-secondary">
+                                <!-- Filled dynamically -->
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Мәселе санаты</label>
+                            <select id="issue-category" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-secondary">
+                                <option value="Су құбырының жарылуы">Су құбырының жарылуы</option>
+                                <option value="Су қысымының төмендеуі">Су қысымының төмендеуі</option>
+                                <option value="Судың болмауы">Судың болмауы</option>
+                                <option value="Кәріздің бітелуі">Кәріздің бітелуі</option>
+                                <option value="Жылудың болмауы / әлсіздігі">Жылудың болмауы / әлсіздігі</option>
+                                <option value="Электр қуатының өшуі">Электр қуатының өшуі</option>
+                                <option value="Қоқыс шығарылмау">Қоқыс шығарылмау</option>
+                                <option value="Басқа ақау">Басқа ақау</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Мәселенің сипаттамасы</label>
+                        <textarea id="issue-desc" rows="3" required placeholder="Мәселені толығырақ жазыңыз..." class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-secondary"></textarea>
+                    </div>
+
+                    <!-- Leaflet Map Integration -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Орынды картадан белгілеңіз</label>
+                        <div id="map"></div>
+                        <p class="text-xs text-slate-400 mt-1">Маркерді қажетті жерге жылжытыңыз немесе картаны басыңыз.</p>
+                        <input type="hidden" id="issue-lat" value="51.2333">
+                        <input type="hidden" id="issue-lng" value="51.3667">
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Фото тіркеу (PNG, JPG, WebP)</label>
+                            <input type="file" id="issue-photo" accept="image/*" capture="environment" onchange="previewIssueMedia('photo')" class="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-secondary hover:file:bg-blue-100 cursor-pointer">
+                            <div id="issue-photo-preview" class="mt-2 hidden">
+                                <img id="issue-photo-img" class="w-24 h-24 object-cover rounded-lg border shadow-sm">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Видео тіркеу (MP4, WebM)</label>
+                            <input type="file" id="issue-video" accept="video/*" capture="environment" onchange="previewIssueMedia('video')" class="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-secondary hover:file:bg-blue-100 cursor-pointer">
+                            <p id="video-warning" class="text-[11px] text-amber-600 mt-1 hidden"><i class="fa-solid fa-triangle-exclamation"></i> Үлкен видеолар браузер жадында тек сессия кезінде сақталады.</p>
+                            <div id="issue-video-preview" class="mt-2 hidden">
+                                <video id="issue-video-tag" controls class="w-32 h-20 object-cover rounded-lg border shadow-sm"></video>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end">
+                        <button type="submit" class="bg-rose-600 hover:bg-rose-700 text-white font-semibold px-6 py-2.5 rounded-xl text-sm shadow transition flex items-center space-x-2">
+                            <i class="fa-solid fa-paper-plane"></i><span>Өтінімді жіберу</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <!-- 7. DISPATCHER TAB -->
+        <section id="tab-dispatcher" class="tab-content hidden space-y-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-800">Диспетчер панелі</h2>
+                    <p class="text-sm text-slate-500">Коммуналдық өтінімдерді қабылдау, статус өзгерту және маман тағайындау.</p>
+                </div>
+            </div>
+
+            <!-- Login gate for dispatcher -->
+            <div id="dispatcher-login-card" class="bg-white rounded-xl p-8 shadow-sm border border-slate-100 max-w-md mx-auto text-center space-y-4">
+                <div class="w-16 h-16 bg-blue-50 text-secondary rounded-2xl flex items-center justify-center text-2xl mx-auto shadow">
+                    <i class="fa-solid fa-lock"></i>
+                </div>
+                <h3 class="font-bold text-xl text-slate-800">Диспетчер ретінде кіру</h3>
+                <p class="text-xs text-slate-500">Демо логин: <code class="bg-slate-100 px-2 py-0.5 rounded font-mono text-secondary font-bold">admin</code>, құпиясөз: <code class="bg-slate-100 px-2 py-0.5 rounded font-mono text-secondary font-bold">1234</code></p>
+                <form onsubmit="loginDispatcher(event)" class="space-y-3 text-left">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Логин</label>
+                        <input type="text" id="disp-user" required value="admin" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-secondary">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Құпиясөз</label>
+                        <input type="password" id="disp-pass" required value="1234" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-secondary">
+                    </div>
+                    <button type="submit" class="w-full bg-secondary hover:bg-blue-600 text-white font-semibold py-2.5 rounded-xl text-sm shadow transition">
+                        Кіру
+                    </button>
+                </form>
+            </div>
+
+            <!-- Dispatcher Dashboard Content -->
+            <div id="dispatcher-dashboard" class="hidden space-y-6">
+                <!-- Stats Overview -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+                        <p class="text-xs text-slate-500">Барлық өтінімдер</p>
+                        <p id="stat-total" class="text-2xl font-bold text-slate-800 mt-1">0</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+                        <p class="text-xs text-slate-500">Жаңа өтінімдер</p>
+                        <p id="stat-new" class="text-2xl font-bold text-amber-600 mt-1">0</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+                        <p class="text-xs text-slate-500">Жұмыстағылар</p>
+                        <p id="stat-progress" class="text-2xl font-bold text-secondary mt-1">0</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+                        <p class="text-xs text-slate-500">Орындалғандар</p>
+                        <p id="stat-done" class="text-2xl font-bold text-emerald-600 mt-1">0</p>
+                    </div>
+                </div>
+
+                <!-- Requests management table -->
+                <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100 space-y-4">
+                    <div class="flex items-center justify-between border-b pb-3">
+                        <h3 class="font-bold text-slate-800 flex items-center space-x-2">
+                            <i class="fa-solid fa-list-check text-secondary"></i>
+                            <span>Барлық түскен өтінімдер тізімі</span>
+                        </h3>
+                        <button onclick="logoutDispatcher()" class="text-xs text-rose-600 hover:underline font-semibold">Шығу</button>
+                    </div>
+                    <div id="dispatcher-requests-list" class="space-y-3">
+                        <!-- Filled dynamically -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 8. CABINET TAB -->
+        <section id="tab-cabinet" class="tab-content hidden space-y-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-800">Жеке кабинет</h2>
+                    <p class="text-sm text-slate-500">Параметрлер, хабарламалар және профиль деректері.</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- User Profile Card -->
+                <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100 space-y-4 text-center">
+                    <div class="w-20 h-20 bg-blue-100 text-secondary rounded-full flex items-center justify-center text-3xl mx-auto shadow">
+                        <i class="fa-solid fa-user-tie"></i>
+                    </div>
+                    <div>
+                        <h3 id="cabinet-user-name" class="font-bold text-lg text-slate-800">Азамат Тұрғынов</h3>
+                        <p id="cabinet-user-phone" class="text-xs text-slate-500 mt-0.5">+7 (701) 234-56-78</p>
+                    </div>
+                    <div class="pt-2 border-t text-left space-y-2 text-xs">
+                        <div class="flex justify-between"><span class="text-slate-500">Таңдалған қала:</span><span id="cabinet-user-city" class="font-semibold text-slate-800">Орал</span></div>
+                        <div class="flex justify-between"><span class="text-slate-500">Тіркелген үйлер:</span><span id="cabinet-homes-count" class="font-semibold text-slate-800">0</span></div>
+                        <div class="flex justify-between"><span class="text-slate-500">Сессия күйі:</span><span class="font-semibold text-emerald-600">Белсенді</span></div>
+                    </div>
+                    <button onclick="logoutUser()" class="w-full bg-rose-50 hover:bg-rose-100 text-rose-600 font-semibold py-2 rounded-xl text-xs transition">
+                        Аккаунттан шығу
+                    </button>
+                </div>
+
+                <!-- Notifications & AI Engineering Analysis -->
+                <div class="md:col-span-2 space-y-6">
+                    <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100 space-y-4">
+                        <h3 class="font-bold text-slate-800 flex items-center space-x-2 border-b pb-3">
+                            <i class="fa-solid fa-bell text-secondary"></i>
+                            <span>Хабарламалар</span>
+                        </h3>
+                        <div id="notifications-list" class="space-y-2.5 text-sm">
+                            <!-- Filled dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- AI Engineering Risk Analysis -->
+                    <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100 space-y-4">
+                        <h3 class="font-bold text-slate-800 flex items-center space-x-2 border-b pb-3">
+                            <i class="fa-solid fa-robot text-cyan-600"></i>
+                            <span>Инженерлік тәуекелдерді талдау (Шартты алгоритм)</span>
+                        </h3>
+                        <p class="text-xs text-slate-500">Үйлеріңіздің есептегіштері мен тарихына негізделген шартты талдау:</p>
+                        <div id="ai-analysis-box" class="bg-blue-50/50 border border-blue-100 rounded-xl p-4 text-xs space-y-2">
+                            <!-- Filled dynamically -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- MOBILE BOTTOM NAVIGATION BAR -->
+    <div class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-50 flex justify-around py-2 shadow-lg">
+        <button onclick="switchTab('home')" class="mobile-nav-btn text-secondary flex flex-col items-center text-[10px] space-y-1" data-target="home">
+            <i class="fa-solid fa-house text-lg"></i><span>Басты бет</span>
+        </button>
+        <button onclick="switchTab('homes')" class="mobile-nav-btn text-slate-400 flex flex-col items-center text-[10px] space-y-1" data-target="homes">
+            <i class="fa-solid fa-building text-lg"></i><span>Үйлерім</span>
+        </button>
+        <button onclick="switchTab('meters')" class="mobile-nav-btn text-slate-400 flex flex-col items-center text-[10px] space-y-1" data-target="meters">
+            <i class="fa-solid fa-gauge text-lg"></i><span>Есептегіш</span>
+        </button>
+        <button onclick="switchTab('payments')" class="mobile-nav-btn text-slate-400 flex flex-col items-center text-[10px] space-y-1" data-target="payments">
+            <i class="fa-solid fa-wallet text-lg"></i><span>Төлем</span>
+        </button>
+        <button onclick="switchTab('cabinet')" class="mobile-nav-btn text-slate-400 flex flex-col items-center text-[10px] space-y-1" data-target="cabinet">
+            <i class="fa-solid fa-id-card text-lg"></i><span>Кабинет</span>
+        </button>
+    </div>
+
+    <!-- FOOTER WARNING -->
+    <footer class="bg-slate-900 text-slate-400 text-xs py-4 px-4 text-center border-t border-slate-800 mb-14 md:mb-0">
+        <div class="max-w-7xl mx-auto">
+            Бұл — демонстрациялық MVP. Төлемдер нақты жүргізілмейді. Деректер мемлекеттік жүйелермен және коммуналдық ұйымдармен байланыспайды; осы браузерде сақталады.
+        </div>
+    </footer>
+
+
+    <!-- MODAL WINDOWS -->
+
+    <!-- Auth Modal -->
+    <div id="auth-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 relative animate-in">
+            <button onclick="closeAuthModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            <h3 class="font-bold text-xl text-slate-800">Жүйеге кіру</h3>
+            <p class="text-xs text-slate-500">Телефон нөмірін немесе ЭЦҚ арқылы кіруді имитациялаңыз.</p>
+            <form onsubmit="handleAuthSubmit(event)" class="space-y-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Телефон нөмірі</label>
+                    <input type="text" id="auth-phone" value="+7 (701) 234-56-78" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-secondary">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">SMS код (демо: 1234)</label>
+                    <input type="text" id="auth-code" value="1234" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-secondary">
+                </div>
+                <div class="flex space-x-2 pt-2">
+                    <button type="submit" class="flex-1 bg-secondary hover:bg-blue-600 text-white font-semibold py-2.5 rounded-xl text-sm shadow transition">
+                        Кіру
+                    </button>
+                    <button type="button" onclick="simulateEDSLogin()" class="flex-1 bg-cyan-600 hover:bg-cyan-700 text-white font-semibold py-2.5 rounded-xl text-sm shadow transition flex items-center justify-center space-x-1">
+                        <i class="fa-solid fa-key"></i><span>ЭЦҚ арқылы</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Home Modal -->
+    <div id="add-home-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 relative custom-scrollbar max-h-[90vh] overflow-y-auto">
+            <button onclick="closeAddHomeModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            <h3 class="font-bold text-xl text-slate-800">Жаңа үй тіркеу</h3>
+            <form onsubmit="saveNewHome(event)" class="space-y-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Үйдің атауы</label>
+                    <input type="text" id="home-title" placeholder="Мыс: Өз үйім немесе Ата-анамның үйі" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Қала</label>
+                        <select id="home-city" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                            <option value="Орал">Орал</option>
+                            <option value="Алматы">Алматы</option>
+                            <option value="Атырау">Атырау</option>
+                            <option value="Ақтөбе">Ақтөбе</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Көше</label>
+                        <input type="text" id="home-street" placeholder="Мыс: Достық даңғылы, 45" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Үй / Корпус / Пәтер</label>
+                        <input type="text" id="home-apt" placeholder="Мыс: 12-пәтер" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Лицевой счет (су/электр)</label>
+                        <input type="text" id="home-ls" placeholder="Мыс: LS-987654" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                    </div>
+                </div>
+                <div class="pt-3 flex justify-end space-x-2">
+                    <button type="button" onclick="closeAddHomeModal()" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-sm font-semibold">Болдырмау</button>
+                    <button type="submit" class="px-5 py-2 bg-secondary text-white rounded-xl text-sm font-semibold shadow">Сақтау</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Meter Modal -->
+    <div id="add-meter-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 relative">
+            <button onclick="closeAddMeterModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            <h3 class="font-bold text-xl text-slate-800">Жаңа есептегіш қосу</h3>
+            <form onsubmit="saveNewMeter(event)" class="space-y-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Үйді таңдаңыз</label>
+                    <select id="am-home-select" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                        <!-- Filled dynamically -->
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Қызмет түрі</label>
+                    <select id="am-type" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                        <option value="Суық су">Суық су</option>
+                        <option value="Ыстық су">Ыстық су</option>
+                        <option value="Электр қуаты">Электр қуаты</option>
+                        <option value="Газ">Газ</option>
+                        <option value="Жылу">Жылу</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Есептегіш нөмірі / Атауы</label>
+                    <input type="text" id="am-number" placeholder="Мыс: №789456" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Бастапқы көрсеткіш</label>
+                    <input type="number" step="0.01" id="am-initial" value="0" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                </div>
+                <div class="pt-3 flex justify-end space-x-2">
+                    <button type="button" onclick="closeAddMeterModal()" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-sm font-semibold">Болдырмау</button>
+                    <button type="submit" class="px-5 py-2 bg-secondary text-white rounded-xl text-sm font-semibold shadow">Қосу</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Digital Passport Modal -->
+    <div id="passport-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl space-y-4 relative custom-scrollbar max-h-[90vh] overflow-y-auto">
+            <button onclick="closePassportModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            <div class="flex items-center space-x-3 border-b pb-3">
+                <div class="w-10 h-10 rounded-xl bg-blue-50 text-secondary flex items-center justify-center text-xl font-bold">
+                    <i class="fa-solid fa-id-badge"></i>
+                </div>
+                <div>
+                    <h3 id="passport-modal-title" class="font-bold text-xl text-slate-800">Үйдің цифрлық паспорты</h3>
+                    <p class="text-xs text-slate-500">Пайдаланушы енгізген деректер мен инженерлік паспорт</p>
+                </div>
+            </div>
+            <div id="passport-content" class="space-y-4 text-sm">
+                <!-- Loaded dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Account Open Modal -->
+    <div id="account-open-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4 relative custom-scrollbar max-h-[90vh] overflow-y-auto">
+            <button onclick="closeAccountOpenModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            <h3 class="font-bold text-xl text-slate-800">Жаңа тұрғын үйге лицевой счет ашу</h3>
+            <form onsubmit="submitAccountOpen(event)" class="space-y-3">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">ЖСН</label>
+                        <input type="text" id="ao-iin" placeholder="12 цифрлы ЖСН" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Аты-жөні</label>
+                        <input type="text" id="ao-name" placeholder="Аты-жөніңіз" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Телефон</label>
+                        <input type="text" id="ao-phone" placeholder="+7 (...)" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Email</label>
+                        <input type="email" id="ao-email" placeholder="mail@example.com" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Қала</label>
+                        <select id="ao-city" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                            <option value="Орал">Орал</option>
+                            <option value="Алматы">Алматы</option>
+                            <option value="Атырау">Атырау</option>
+                            <option value="Ақтөбе">Ақтөбе</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Кадастр нөмірі</label>
+                        <input type="text" id="ao-cadastre" placeholder="Кадастр нөмірі" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Мекенжайы (Көше, үй, пәтер)</label>
+                    <input type="text" id="ao-address" placeholder="Толық мекенжай" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Меншік құжаты (PDF, JPG, PNG)</label>
+                    <input type="file" id="ao-doc" accept=".pdf,image/*" required class="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-secondary cursor-pointer">
+                </div>
+                <div class="pt-3 flex justify-end space-x-2">
+                    <button type="button" onclick="closeAccountOpenModal()" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-sm font-semibold">Болдырмау</button>
+                    <button type="submit" class="px-5 py-2 bg-secondary text-white rounded-xl text-sm font-semibold shadow">Өтінімді жіберу (ЭЦҚ демо)</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Account Transfer Modal -->
+    <div id="account-transfer-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4 relative custom-scrollbar max-h-[90vh] overflow-y-auto">
+            <button onclick="closeAccountTransferModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            <h3 class="font-bold text-xl text-slate-800">Лицевой счетты ауыстыру (Меншік иесін өзгерту)</h3>
+            <form onsubmit="submitAccountTransfer(event)" class="space-y-3">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Бұрынғы лицевой счет</label>
+                        <input type="text" id="at-old-ls" placeholder="Мыс: LS-123456" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Сатып алу күні</label>
+                        <input type="date" id="at-date" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Жаңа иесінің ЖСН</label>
+                        <input type="text" id="at-iin" placeholder="ЖСН" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Жаңа иесінің аты-жөні</label>
+                        <input type="text" id="at-name" placeholder="Аты-жөні" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Сатып алу-сату құжаты</label>
+                    <input type="file" id="at-doc" accept=".pdf,image/*" required class="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-secondary cursor-pointer">
+                </div>
+                <div class="pt-3 flex justify-end space-x-2">
+                    <button type="button" onclick="closeAccountTransferModal()" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-sm font-semibold">Болдырмау</button>
+                    <button type="submit" class="px-5 py-2 bg-secondary text-white rounded-xl text-sm font-semibold shadow">Ауыстыру өтінімін жіберу</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Payment Modal -->
+    <div id="payment-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 relative">
+            <button onclick="closePaymentModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            <div class="flex items-center space-x-3 border-b pb-3">
+                <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-2xl font-bold">
+                    <i class="fa-solid fa-credit-card"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-lg text-slate-800">Коммуналдық төлем</h3>
+                    <p id="pay-modal-subtitle" class="text-xs text-slate-500">Шотты жабу</p>
+                </div>
+            </div>
+            <div class="space-y-3 text-sm">
+                <div class="bg-slate-50 p-3 rounded-xl space-y-1.5">
+                    <div class="flex justify-between"><span class="text-slate-500">Қызмет / Үй:</span><span id="pay-modal-service" class="font-semibold text-slate-800">Суық су</span></div>
+                    <div class="flex justify-between"><span class="text-slate-500">Төленетін сома:</span><span id="pay-modal-amount" class="font-bold text-emerald-600 text-base">0 ₸</span></div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-2">Төлем әдісін таңдаңыз (Демо)</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button type="button" onclick="selectPayMethod('Kaspi')" id="pm-kaspi" class="pay-method-btn border-2 border-secondary bg-blue-50 text-secondary p-3 rounded-xl text-xs font-bold flex flex-col items-center space-y-1">
+                            <i class="fa-solid fa-mobile-screen-button text-lg"></i><span>Kaspi.kz</span>
+                        </button>
+                        <button type="button" onclick="selectPayMethod('Halyk')" id="pm-halyk" class="pay-method-btn border-2 border-slate-200 text-slate-600 p-3 rounded-xl text-xs font-bold flex flex-col items-center space-y-1">
+                            <i class="fa-solid fa-building-columns text-lg"></i><span>Halyk Bank</span>
+                        </button>
+                        <button type="button" onclick="selectPayMethod('Card')" id="pm-card" class="pay-method-btn border-2 border-slate-200 text-slate-600 p-3 rounded-xl text-xs font-bold flex flex-col items-center space-y-1">
+                            <i class="fa-solid credit-card text-lg"></i><span>Visa / MC</span>
+                        </button>
+                    </div>
+                </div>
+                <button onclick="executePayment()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-xl text-sm shadow transition flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-shield-halved"></i><span id="pay-exec-btn-text">Төлеу (0 ₸)</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        // Global State
+        let appState = {
+            currentCity: 'Орал',
+            currentUser: { name: 'Азамат Тұрғынов', phone: '+7 (701) 234-56-78', loggedIn: true },
+            dispatcherLoggedIn: false,
+            activeTab: 'home',
+            selectedPayMethod: 'Kaspi',
+            currentPayingBillId: null,
+            homes: [],
+            meters: [],
+            readings: [],
+            bills: [],
+            payments: [],
+            requests: [],
+            notifications: [],
+            passports: {}, // homeId -> passport data
+            fileStorage: {} // id -> base64 or URL for IndexedDB simulation
+        };
+
+        // City Tariffs and Demo Data
+        const cityData = {
+            'Орал': {
+                tariffs: { 'Суық су': 145.5, 'Ыстық су': 480.0, 'Электр қуаты': 22.4, 'Газ': 19.8, 'Жылу': 4100.0, 'Қоқыс шығару': 450.0, 'Кәріз': 95.0 },
+                announcements: [
+                    { title: 'Жылу беру маусымына дайындық', date: '05.10.2026', desc: 'Орал қаласы бойынша көпқабатты үйлерді жылу жүйесіне қосу жұмыстары кестеге сай жүргізілуде.' },
+                    { title: 'Жалпықалалық сенбілік және санитарлық тазарту', date: '01.10.2026', desc: 'Коммуналдық қызметтер аулаішілік аумақтарды жинау жұмыстарын күшейтті.' }
+                ]
+            },
+            'Алматы': {
+                tariffs: { 'Суық су': 160.0, 'Ыстық су': 520.0, 'Электр қуаты': 27.0, 'Газ': 23.5, 'Жылу': 4500.0, 'Қоқыс шығару': 550.0, 'Кәріз': 110.0 },
+                announcements: [
+                    { title: 'Магистральдық су құбырын жөндеу', date: '04.10.2026', desc: 'Алатау ауданында кейбір көшелерде уақытша су қысымы төмендеуі мүмкін.' },
+                    { title: 'Энергосет модернизациясы', date: '30.09.2026', desc: 'Трансформаторлық қосалқы станцияларда профилактикалық жұмыстар өтеді.' }
+                ]
+            },
+            'Атырау': {
+                tariffs: { 'Суық су': 135.0, 'Ыстық су': 450.0, 'Электр қуаты': 20.5, 'Газ': 18.0, 'Жылу': 3900.0, 'Қоқыс шығару': 400.0, 'Кәріз': 88.0 },
+                announcements: [
+                    { title: 'Су тазарту станциясын жаңарту', date: '03.10.2026', desc: 'Жайық өзені жағалауындағы сорғы станцияларында ауыстыру жұмыстары жүруде.' }
+                ]
+            },
+            'Ақтөбе': {
+                tariffs: { 'Суық су': 140.0, 'Ыстық су': 465.0, 'Электр қуаты': 21.8, 'Газ': 19.0, 'Жылу': 4000.0, 'Қоқыс шығару': 420.0, 'Кәріз': 90.0 },
+                announcements: [
+                    { title: 'Жылу желілерін гидравликалық сыпақтан өткізу', date: '02.10.2026', desc: 'Барлық тұрғын үй массивтерінде жылу қазандықтары дайындықтан өтуде.' }
+                ]
+            }
+        };
+
+        // Initialize App
+        window.addEventListener('DOMContentLoaded', () => {
+            loadStateFromLocalStorage();
+            initDefaultDataIfEmpty();
+            renderAll();
+            initMap();
+        });
+
+        function saveStateToLocalStorage() {
+            localStorage.setItem('smart_utility_kz_state', JSON.stringify(appState));
+        }
+
+        function loadStateFromLocalStorage() {
+            const saved = localStorage.getItem('smart_utility_kz_state');
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    appState = { ...appState, ...parsed };
+                } catch(e) { console.error(e); }
+            }
+        }
+
+        function initDefaultDataIfEmpty() {
+            if (appState.homes.length === 0) {
+                const defaultHomeId = 'home_' + Date.now();
+                appState.homes = [
+                    { id: defaultHomeId, title: 'Өз үйім', city: appState.currentCity, street: 'Достық даңғылы, 45', apt: 'пәтер 12', ls: 'LS-884920' }
+                ];
+                appState.meters = [
+                    { id: 'meter_water_' + defaultHomeId, homeId: defaultHomeId, type: 'Суық су', number: 'WM-4591', lastReading: 120.0 },
+                    { id: 'meter_elec_' + defaultHomeId, homeId: defaultHomeId, type: 'Электр қуаты', number: 'EM-9921', lastReading: 1450.0 }
+                ];
+                appState.bills = [
+                    { id: 'bill_1', homeId: defaultHomeId, service: 'Суық су', period: 'Қыркүйек 2026', amount: 2182.5, status: 'Төленбеген' },
+                    { id: 'bill_2', homeId: defaultHomeId, service: 'Электр қуаты', period: 'Қыркүйек 2026', amount: 32480.0, status: 'Төленбеген' }
+                ];
+                appState.notifications = [
+                    { id: 1, title: 'Жүйеге қош келдіңіз!', text: 'Smart Utility KZ демонстрациялық жүйесі сәтті іске қосылды.', date: 'Бүгін' },
+                    { id: 2, title: 'Қыркүйек айының шоттары', text: 'Жаңа коммуналдық шоттар қалыптастырылды.', date: 'Кеше' }
+                ];
+                appState.passports[defaultHomeId] = {
+                    district: 'Орталық аудан',
+                    houseType: 'Көпқабатты панельді үй',
+                    builtYear: '2015',
+                    floors: '9',
+                    totalArea: '68.5 кв.м',
+                    livingArea: '42.0 кв.м',
+                    ownerName: 'Азамат Тұрғынов',
+                    ownerType: 'Жеке меншік',
+                    cadastre: '07:489:123:004',
+                    buyDate: '2020-05-14',
+                    engineering: 'Су құбыры пластик, кәріз шойын/пластик, жылу орталықтандырылған.',
+                    notes: 'Кез келген ескерту жоқ.'
+                };
+                saveStateToLocalStorage();
+            }
+        }
+
+        // Tab Switching
+        function switchTab(tabId) {
+            appState.activeTab = tabId;
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            const targetEl = document.getElementById('tab-' + tabId);
+            if (targetEl) targetEl.classList.remove('hidden');
+
+            // Update desktop nav
+            document.querySelectorAll('.nav-tab').forEach(btn => {
+                if (btn.getAttribute('data-target') === tabId) {
+                    btn.classList.add('text-secondary', 'border-b-2', 'border-secondary', 'font-bold');
+                    btn.classList.remove('text-slate-600');
+                } else {
+                    btn.classList.remove('text-secondary', 'border-b-2', 'border-secondary', 'font-bold');
+                    btn.classList.add('text-slate-600');
+                }
+            });
+
+            // Update mobile nav
+            document.querySelectorAll('.mobile-nav-btn').forEach(btn => {
+                if (btn.getAttribute('data-target') === tabId) {
+                    btn.classList.add('text-secondary');
+                    btn.classList.remove('text-slate-400');
+                } else {
+                    btn.classList.remove('text-secondary');
+                    btn.classList.add('text-slate-400');
+                }
+            });
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            renderAll();
+        }
+
+        // Global City Change
+        function changeGlobalCity(city) {
+            appState.currentCity = city;
+            document.getElementById('global-city-select').value = city;
+            saveStateToLocalStorage();
+            renderAll();
+        }
+
+        // Render All UI Components
+        function renderAll() {
+            // Home tab labels
+            document.getElementById('home-city-badge').innerText = appState.currentCity + ' қаласы';
+            document.getElementById('home-main-title').innerText = appState.currentCity + ' қаласының коммуналдық цифрлық сервисі';
+            document.getElementById('current-city-label').innerText = appState.currentCity;
+            document.getElementById('cabinet-user-city').innerText = appState.currentCity;
+
+            renderCityAnnouncements();
+            renderCityTariffs();
+            renderHomes();
+            renderMetersSelects();
+            renderMetersHistory();
+            renderBills();
+            renderRequests();
+            renderDispatcher();
+            renderCabinet();
+        }
+
+        // Render City Announcements
+        function renderCityAnnouncements() {
+            const container = document.getElementById('city-announcements-list');
+            const anns = cityData[appState.currentCity]?.announcements || [];
+            container.innerHTML = anns.map(a => `
+                <div class="bg-slate-50 border border-slate-100 p-3.5 rounded-xl space-y-1">
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="font-bold text-secondary">${a.title}</span>
+                        <span class="text-slate-400">${a.date}</span>
+                    </div>
+                    <p class="text-xs text-slate-600">${a.desc}</p>
+                </div>
+            `).join('') || '<p class="text-xs text-slate-400">Хабарламалар жоқ.</p>';
+        }
+
+        // Render City Tariffs
+        function renderCityTariffs() {
+            const container = document.getElementById('city-tariffs-list');
+            const tariffs = cityData[appState.currentCity]?.tariffs || {};
+            container.innerHTML = Object.entries(tariffs).map(([k, v]) => `
+                <div class="flex justify-between items-center py-1.5 border-b border-slate-100 last:border-none">
+                    <span class="text-slate-600">${k} (демо)</span>
+                    <span class="font-bold text-slate-800">${v} ₸</span>
+                </div>
+            `).join('');
+        }
+
+        // Render Homes
+        function renderHomes() {
+            const container = document.getElementById('homes-grid');
+            const cityHomes = appState.homes.filter(h => h.city === appState.currentCity);
+            document.getElementById('cabinet-homes-count').innerText = appState.homes.length;
+
+            container.innerHTML = cityHomes.map(h => `
+                <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100 space-y-3">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <span class="text-[10px] bg-blue-50 text-secondary font-bold px-2 py-0.5 rounded uppercase">${h.city}</span>
+                            <h3 class="font-bold text-slate-800 text-base mt-1">${h.title}</h3>
+                        </div>
+                        <button onclick="deleteHome('${h.id}')" class="text-slate-400 hover:text-rose-600"><i class="fa-solid fa-trash-can text-sm"></i></button>
+                    </div>
+                    <div class="text-xs text-slate-600 space-y-1">
+                        <p><i class="fa-solid fa-location-dot text-secondary mr-1.5"></i>${h.street}, ${h.apt}</p>
+                        <p><i class="fa-solid fa-file-invoice text-cyan-600 mr-1.5"></i>Лицевой счет: <strong class="text-slate-800">${h.ls}</strong></p>
+                    </div>
+                    <div class="pt-2 border-t flex items-center justify-between">
+                        <button onclick="openPassportModal('${h.id}')" class="bg-blue-50 hover:bg-blue-100 text-secondary px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center space-x-1.5">
+                            <i class="fa-solid fa-id-badge"></i><span>Цифрлық паспорт</span>
+                        </button>
+                        <button onclick="switchTab('meters')" class="text-xs text-slate-500 hover:text-secondary font-semibold">Есептегіштерді көру &rarr;</button>
+                    </div>
+                </div>
+            `).join('') || '<div class="col-span-2 text-center py-8 text-slate-400 text-sm">Бұл қалада тіркелген үйлеріңіз жоқ. Жоғарыдан үй қосыңыз.</div>';
+        }
+
+        // Render Meters Selects and Form dropdowns
+        function renderMetersSelects() {
+            const homeSelects = ['sub-home-select', 'am-home-select', 'issue-home-select'];
+            const cityHomes = appState.homes.filter(h => h.city === appState.currentCity);
+            const optionsHtml = cityHomes.map(h => `<option value="${h.id}">${h.title} (${h.street})</option>`).join('') || '<option value="">Үй табылмады</option>';
+
+            homeSelects.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.innerHTML = optionsHtml;
+            });
+
+            if (cityHomes.length > 0) {
+                updateMetersForHome(cityHomes[0].id);
+            } else {
+                document.getElementById('sub-meter-select').innerHTML = '<option value="">Есептегіш жоқ</option>';
+            }
+        }
+
+        function updateMetersForHome(homeId) {
+            const meterSelect = document.getElementById('sub-meter-select');
+            const homeMeters = appState.meters.filter(m => m.homeId === homeId);
+            meterSelect.innerHTML = homeMeters.map(m => `<option value="${m.id}">${m.type} (${m.number})</option>`).join('') || '<option value="">Бұл үйде есептегіш жоқ</option>';
+        }
+
+        let tempMeterPhotoBase64 = null;
+        function previewMeterPhoto(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    tempMeterPhotoBase64 = e.target.result;
+                    const container = document.getElementById('photo-preview-container');
+                    const img = document.getElementById('photo-preview-img');
+                    img.src = tempMeterPhotoBase64;
+                    container.classList.remove('hidden');
+                }
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function submitMeterReading(event) {
+            event.preventDefault();
+            const homeId = document.getElementById('sub-home-select').value;
+            const meterId = document.getElementById('sub-meter-select').value;
+            const val = parseFloat(document.getElementById('sub-reading-val').value);
+            const period = document.getElementById('sub-period').value;
+
+            const meter = appState.meters.find(m => m.id === meterId);
+            if (!meter) return alert('Есептегіш таңдалмады!');
+
+            if (val < meter.lastReading) {
+                if (!confirm('Енгізілген көрсеткіш алдыңғы көрсеткіштен төмен! Есептегіш ауыстырылған болса жалғастырыңыз. Жалғастырасыз ба?')) return;
+            }
+
+            const consumption = Math.max(0, val - meter.lastReading);
+            const tariff = cityData[appState.currentCity]?.tariffs[meter.type] || 100.0;
+            const amount = consumption * tariff;
+
+            const readingRecord = {
+                id: 'reading_' + Date.now(),
+                homeId,
+                meterId,
+                type: meter.type,
+                prevReading: meter.lastReading,
+                currReading: val,
+                consumption,
+                tariff,
+                amount,
+                period,
+                date: new Date().toLocaleDateString(),
+                photo: tempMeterPhotoBase64 || null
+            };
+
+            appState.readings.unshift(readingRecord);
+            meter.lastReading = val;
+
+            // Generate Bill
+            const billRecord = {
+                id: 'bill_' + Date.now(),
+                homeId,
+                service: meter.type,
+                period,
+                amount,
+                status: 'Төленбеген'
+            };
+            appState.bills.unshift(billRecord);
+
+            saveStateToLocalStorage();
+            tempMeterPhotoBase64 = null;
+            document.getElementById('meter-submission-form').reset();
+            document.getElementById('photo-preview-container').classList.add('hidden');
+            alert('Көрсеткіш сәтті тіркелді және шот есептелді: ' + amount.toFixed(2) + ' ₸');
+            renderAll();
+        }
+
+        function renderMetersHistory() {
+            const container = document.getElementById('meters-history-list');
+            container.innerHTML = appState.readings.map(r => `
+                <div class="bg-slate-50 border border-slate-100 p-4 rounded-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+                    <div class="space-y-1">
+                        <div class="flex items-center space-x-2">
+                            <span class="font-bold text-slate-800 text-sm">${r.type}</span>
+                            <span class="text-[10px] bg-blue-50 text-secondary px-2 py-0.5 rounded">${r.period}</span>
+                        </div>
+                        <p class="text-xs text-slate-500">Көрсеткіш: ${r.prevReading} &rarr; <strong class="text-slate-800">${r.currReading}</strong> (${r.consumption} бірлік)</p>
+                        <p class="text-xs text-slate-400">Тариф: ${r.tariff} ₸ | Сома: <strong class="text-emerald-600">${r.amount.toFixed(2)} ₸</strong></p>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        ${r.photo ? `<img src="${r.photo}" onclick="window.open(this.src)" class="w-14 h-14 object-cover rounded-lg border cursor-pointer hover:opacity-90 title="Фотоны үлкейту">` : '<span class="text-xs text-slate-400">Фото жоқ</span>'}
+                        <button onclick="deleteReading('${r.id}')" class="text-slate-400 hover:text-rose-600"><i class="fa-solid fa-trash-can"></i></button>
+                    </div>
+                </div>
+            `).join('') || '<p class="text-xs text-slate-400">Тіркелген көрсеткіштер жоқ.</p>';
+        }
+
+        function deleteReading(id) {
+            appState.readings = appState.readings.filter(r => r.id !== id);
+            saveStateToLocalStorage();
+            renderAll();
+        }
+
+        // Render Bills and Payments
+        function renderBills() {
+            const unpaidContainer = document.getElementById('unpaid-bills-list');
+            const paidContainer = document.getElementById('paid-history-list');
+            const payAllBtn = document.getElementById('pay-all-btn');
+
+            const unpaid = appState.bills.filter(b => b.status === 'Төленбеген');
+            const paid = appState.payments || [];
+
+            if (unpaid.length > 1) {
+                payAllBtn.classList.remove('hidden');
+            } else {
+                payAllBtn.classList.add('hidden');
+            }
+
+            unpaidContainer.innerHTML = unpaid.map(b => `
+                <div class="bg-white border border-slate-100 p-4 rounded-xl shadow-sm flex items-center justify-between">
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <h4 class="font-bold text-slate-800 text-sm">${b.service}</h4>
+                            <span class="text-[10px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded font-semibold">Төленбеген</span>
+                        </div>
+                        <p class="text-xs text-slate-500 mt-0.5">Кезең: ${b.period}</p>
+                        <p class="text-sm font-extrabold text-slate-900 mt-1">${b.amount.toFixed(2)} ₸</p>
+                    </div>
+                    <button onclick="openPaymentModal('${b.id}')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow transition">
+                        Төлеу
+                    </button>
+                </div>
+            `).join('') || '<p class="text-xs text-slate-400">Төленбеген шоттар жоқ. Барлығы төленген!</p>';
+
+            paidContainer.innerHTML = paid.map(p => `
+                <div class="bg-slate-50 border border-slate-100 p-3.5 rounded-xl space-y-1">
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="font-bold text-emerald-600">${p.service}</span>
+                        <span class="text-slate-400">${p.date}</span>
+                    </div>
+                    <p class="text-xs text-slate-600">Сома: <strong>${p.amount.toFixed(2)} ₸</strong> (${p.method})</p>
+                    <p class="text-[10px] text-slate-400">Операция ID: ${p.opId}</p>
+                </div>
+            `).join('') || '<p class="text-xs text-slate-400">Төлемдер тарихы бос.</p>';
+        }
+
+        let currentPayingBill = null;
+        function openPaymentModal(billId) {
+            currentPayingBill = appState.bills.find(b => b.id === billId);
+            if (!currentPayingBill) return;
+
+            document.getElementById('pay-modal-subtitle').innerText = 'Кезең: ' + currentPayingBill.period;
+            document.getElementById('pay-modal-service').innerText = currentPayingBill.service;
+            document.getElementById('pay-modal-amount').innerText = currentPayingBill.amount.toFixed(2) + ' ₸';
+            document.getElementById('pay-exec-btn-text').innerText = 'Төлеу (' + currentPayingBill.amount.toFixed(2) + ' ₸)';
+            document.getElementById('payment-modal').classList.remove('hidden');
+        }
+
+        function closePaymentModal() {
+            document.getElementById('payment-modal').classList.add('hidden');
+            currentPayingBill = null;
+        }
+
+        function selectPayMethod(method) {
+            appState.selectedPayMethod = method;
+            ['Kaspi', 'Halyk', 'Card'].forEach(m => {
+                const btn = document.getElementById('pm-' + m.toLowerCase());
+                if (btn) {
+                    if (m === method) {
+                        btn.className = 'pay-method-btn border-2 border-secondary bg-blue-50 text-secondary p-3 rounded-xl text-xs font-bold flex flex-col items-center space-y-1';
+                    } else {
+                        btn.className = 'pay-method-btn border-2 border-slate-200 text-slate-600 p-3 rounded-xl text-xs font-bold flex flex-col items-center space-y-1';
+                    }
+                }
+            });
+        }
+
+        function executePayment() {
+            if (!currentPayingBill) return;
+
+            currentPayingBill.status = 'Төленген';
+            const paymentRecord = {
+                id: 'pay_' + Date.now(),
+                service: currentPayingBill.service,
+                amount: currentPayingBill.amount,
+                period: currentPayingBill.period,
+                method: appState.selectedPayMethod,
+                date: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                opId: 'KZ-' + Math.floor(100000 + Math.random() * 900000)
+            };
+
+            if (!appState.payments) appState.payments = [];
+            appState.payments.unshift(paymentRecord);
+
+            saveStateToLocalStorage();
+            closePaymentModal();
+            alert('Төлем сәтті орындалды! Шот «Төленген» күйіне ауысты.');
+            renderAll();
+        }
+
+        function payAllBills() {
+            const unpaid = appState.bills.filter(b => b.status === 'Төленбеген');
+            if (unpaid.length === 0) return;
+            unpaid.forEach(b => {
+                b.status = 'Төленген';
+                appState.payments.unshift({
+                    id: 'pay_' + Math.random(),
+                    service: b.service,
+                    amount: b.amount,
+                    period: b.period,
+                    method: 'Kaspi (Барлығы)',
+                    date: new Date().toLocaleDateString(),
+                    opId: 'KZ-' + Math.floor(100000 + Math.random() * 900000)
+                });
+            });
+            saveStateToLocalStorage();
+            alert('Барлық шоттар сәтті төленді!');
+            renderAll();
+        }
+
+        // Requests and Issues
+        let tempIssuePhotoBase64 = null;
+        let tempIssueVideoBase64 = null;
+
+        function previewIssueMedia(type) {
+            const fileInput = document.getElementById('issue-' + type);
+            const file = fileInput.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    if (type === 'photo') {
+                        tempIssuePhotoBase64 = e.target.result;
+                        document.getElementById('issue-photo-img').src = tempIssuePhotoBase64;
+                        document.getElementById('issue-photo-preview').classList.remove('hidden');
+                    } else {
+                        tempIssueVideoBase64 = e.target.result;
+                        const vTag = document.getElementById('issue-video-tag');
+                        vTag.src = tempIssueVideoBase64;
+                        document.getElementById('issue-video-preview').classList.remove('hidden');
+                        document.getElementById('video-warning').classList.remove('hidden');
+                    }
+                }
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function submitIssueReport(event) {
+            event.preventDefault();
+            const homeId = document.getElementById('issue-home-select').value;
+            const category = document.getElementById('issue-category').value;
+            const desc = document.getElementById('issue-desc').value;
+            const lat = document.getElementById('issue-lat').value;
+            const lng = document.getElementById('issue-lng').value;
+
+            const home = appState.homes.find(h => h.id === homeId);
+            const reqRecord = {
+                id: 'req_' + Date.now(),
+                type: 'Мәселе: ' + category,
+                city: home ? home.city : appState.currentCity,
+                address: home ? (home.street + ', ' + home.apt) : 'Мекенжай',
+                desc,
+                status: 'Жаңа өтінім',
+                date: new Date().toLocaleDateString(),
+                photo: tempIssuePhotoBase64,
+                video: tempIssueVideoBase64,
+                lat,
+                lng,
+                rating: null
+            };
+
+            appState.requests.unshift(reqRecord);
+            saveStateToLocalStorage();
+            document.getElementById('issue-report-form').reset();
+            tempIssuePhotoBase64 = null;
+            tempIssueVideoBase64 = null;
+            document.getElementById('issue-photo-preview').classList.add('hidden');
+            document.getElementById('issue-video-preview').classList.add('hidden');
+            document.getElementById('video-warning').classList.add('hidden');
+
+            alert('Мәселе туралы өтінім сәтті жіберілді! Өтінімдер бөлімінен қадағалай аласыз.');
+            switchTab('requests');
+        }
+
+        function renderRequests() {
+            const container = document.getElementById('user-requests-list');
+            container.innerHTML = appState.requests.map(r => `
+                <div class="bg-white border border-slate-100 p-4 rounded-xl shadow-sm space-y-3">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <span class="text-[10px] bg-blue-50 text-secondary font-bold px-2 py-0.5 rounded">${r.city}</span>
+                            <h4 class="font-bold text-slate-800 text-sm mt-1">${r.type}</h4>
+                        </div>
+                        <span class="text-xs bg-amber-50 text-amber-600 font-bold px-2.5 py-1 rounded-md">${r.status}</span>
+                    </div>
+                    <p class="text-xs text-slate-600">${r.desc}</p>
+                    <div class="text-[11px] text-slate-400 flex justify-between items-center pt-2 border-t">
+                        <span>Мекенжай: ${r.address} | Күні: ${r.date}</span>
+                        ${r.photo ? `<a href="${r.photo}" target="_blank" class="text-secondary hover:underline"><i class="fa-solid fa-image"></i> Фото</a>` : ''}
+                    </div>
+                    ${r.status === 'Орындалды' && !r.rating ? `
+                        <div class="pt-2 border-t flex items-center space-x-2 text-xs">
+                            <span class="text-slate-500">Бағалау:</span>
+                            <button onclick="rateRequest('${r.id}', 5)" class="text-amber-500"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></button>
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('') || '<p class="text-xs text-slate-400">Өтінімдер жоқ.</p>';
+        }
+
+        function rateRequest(id, stars) {
+            const req = appState.requests.find(r => r.id === id);
+            if (req) {
+                req.rating = stars;
+                saveStateToLocalStorage();
+                renderAll();
+                alert('Бағаңыз үшін рақмет!');
+            }
+        }
+
+        // Dispatcher Panel Logic
+        function loginDispatcher(event) {
+            event.preventDefault();
+            const u = document.getElementById('disp-user').value;
+            const p = document.getElementById('disp-pass').value;
+            if (u === 'admin' && p === '1234') {
+                appState.dispatcherLoggedIn = true;
+                renderAll();
+            } else {
+                alert('Қате логин немесе құпиясөз!');
+            }
+        }
+
+        function logoutDispatcher() {
+            appState.dispatcherLoggedIn = false;
+            renderAll();
+        }
+
+        function renderDispatcher() {
+            const loginCard = document.getElementById('dispatcher-login-card');
+            const dash = document.getElementById('dispatcher-dashboard');
+
+            if (appState.dispatcherLoggedIn) {
+                loginCard.classList.add('hidden');
+                dash.classList.remove('hidden');
+
+                const total = appState.requests.length;
+                const newReqs = appState.requests.filter(r => r.status === 'Жаңа өтінім').length;
+                const prog = appState.requests.filter(r => r.status === 'Жұмыста').length;
+                const done = appState.requests.filter(r => r.status === 'Орындалды').length;
+
+                document.getElementById('stat-total').innerText = total;
+                document.getElementById('stat-new').innerText = newReqs;
+                document.getElementById('stat-progress').innerText = prog;
+                document.getElementById('stat-done').innerText = done;
+
+                const listContainer = document.getElementById('dispatcher-requests-list');
+                listContainer.innerHTML = appState.requests.map(r => `
+                    <div class="bg-slate-50 border border-slate-100 p-4 rounded-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+                        <div class="space-y-1">
+                            <span class="text-[10px] bg-blue-50 text-secondary px-2 py-0.5 rounded font-bold">${r.city}</span>
+                            <h4 class="font-bold text-slate-800 text-sm">${r.type}</h4>
+                            <p class="text-xs text-slate-600">${r.desc}</p>
+                            <p class="text-[11px] text-slate-400">${r.address} | ${r.date}</p>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <select onchange="updateRequestStatus('${r.id}', this.value)" class="bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-semibold">
+                                <option value="Жаңа өтінім" ${r.status==='Жаңа өтінім'?'selected':''}>Жаңа өтінім</option>
+                                <option value="Жұмыста" ${r.status==='Жұмыста'?'selected':''}>Жұмыста</option>
+                                <option value="Орындалды" ${r.status==='Орындалды'?'selected':''}>Орындалды</option>
+                            </select>
+                        </div>
+                    </div>
+                `).join('') || '<p class="text-xs text-slate-400">Өтінімдер жоқ.</p>';
+            } else {
+                loginCard.classList.remove('hidden');
+                dash.classList.add('hidden');
+            }
+        }
+
+        function updateRequestStatus(id, newStatus) {
+            const req = appState.requests.find(r => r.id === id);
+            if (req) {
+                req.status = newStatus;
+                saveStateToLocalStorage();
+                renderAll();
+            }
+        }
+
+        // Cabinet & Notifications
+        function renderCabinet() {
+            const notifContainer = document.getElementById('notifications-list');
+            notifContainer.innerHTML = appState.notifications.map(n => `
+                <div class="bg-slate-50 border border-slate-100 p-3 rounded-xl space-y-0.5">
+                    <div class="flex justify-between items-center text-xs font-bold text-slate-800">
+                        <span>${n.title}</span><span class="text-slate-400 font-normal">${n.date}</span>
+                    </div>
+                    <p class="text-xs text-slate-600">${n.text}</p>
+                </div>
+            `).join('');
+
+            // AI Risk Analysis
+            const aiBox = document.getElementById('ai-analysis-box');
+            aiBox.innerHTML = `
+                <p><strong>Тұрғын үйлердің жағдайы:</strong> Барлық ${appState.homes.length} үй штатный режимде жұмыс істеуде.</p>
+                <p><strong>Есептегіштерді тексеру мерзімі:</strong> Келесі тексеру 2027 жылдың көктеміне жоспарланған.</p>
+                <p><strong>Энергия үнемдеу индексі:</strong> Жоғары (Орташа көрсеткіштерден 12% төмен тұтыну).</p>
+            `;
+        }
+
+        // Modals management
+        function openAuthModal() { document.getElementById('auth-modal').classList.remove('hidden'); }
+        function closeAuthModal() { document.getElementById('auth-modal').classList.add('hidden'); }
+
+        function handleAuthSubmit(e) {
+            e.preventDefault();
+            const phone = document.getElementById('auth-phone').value;
+            const code = document.getElementById('auth-code').value;
+            if (code === '1234') {
+                appState.currentUser.phone = phone;
+                appState.currentUser.loggedIn = true;
+                saveStateToLocalStorage();
+                closeAuthModal();
+                alert('Жүйеге сәтті кірдіңіз!');
+                renderAll();
+            } else {
+                alert('SMS код қате! Демо код: 1234');
+            }
+        }
+
+        function simulateEDSLogin() {
+            appState.currentUser.loggedIn = true;
+            saveStateToLocalStorage();
+            closeAuthModal();
+            alert('ЭЦҚ арқылы сәтті авторизацияланды!');
+            renderAll();
+        }
+
+        function logoutUser() {
+            appState.currentUser.loggedIn = false;
+            saveStateToLocalStorage();
+            renderAll();
+            alert('Аккаунттан шықтыңыз.');
+        }
+
+        function openAddHomeModal() { document.getElementById('add-home-modal').classList.remove('hidden'); }
+        function closeAddHomeModal() { document.getElementById('add-home-modal').classList.add('hidden'); }
+
+        function saveNewHome(e) {
+            e.preventDefault();
+            const title = document.getElementById('home-title').value;
+            const city = document.getElementById('home-city').value;
+            const street = document.getElementById('home-street').value;
+            const apt = document.getElementById('home-apt').value;
+            const ls = document.getElementById('home-ls').value;
+
+            const newId = 'home_' + Date.now();
+            appState.homes.push({ id: newId, title, city, street, apt, ls });
+            appState.passports[newId] = {
+                district: 'Орталық',
+                houseType: 'Көпқабатты',
+                builtYear: '2018',
+                floors: '5',
+                totalArea: '55.0 кв.м',
+                livingArea: '35.0 кв.м',
+                ownerName: appState.currentUser.name,
+                ownerType: 'Жеке',
+                cadastre: '07:111:222:333',
+                buyDate: '2022-01-01',
+                engineering: 'Жаңа стандартты инженерлік желілер.',
+                notes: 'Жаңадан қосылған үй.'
+            };
+
+            saveStateToLocalStorage();
+            closeAddHomeModal();
+            document.getElementById('add-home-modal').querySelector('form').reset();
+            renderAll();
+            alert('Жаңа үй сәтті тіркелді!');
+        }
+
+        function deleteHome(id) {
+            appState.homes = appState.homes.filter(h => h.id !== id);
+            appState.meters = appState.meters.filter(m => m.homeId !== id);
+            saveStateToLocalStorage();
+            renderAll();
+        }
+
+        function openAddMeterModal() { document.getElementById('add-meter-modal').classList.remove('hidden'); }
+        function closeAddMeterModal() { document.getElementById('add-meter-modal').classList.add('hidden'); }
+
+        function saveNewMeter(e) {
+            e.preventDefault();
+            const homeId = document.getElementById('am-home-select').value;
+            const type = document.getElementById('am-type').value;
+            const number = document.getElementById('am-number').value;
+            const initial = parseFloat(document.getElementById('am-initial').value);
+
+            appState.meters.push({
+                id: 'meter_' + Date.now(),
+                homeId,
+                type,
+                number,
+                lastReading: initial
+            });
+
+            saveStateToLocalStorage();
+            closeAddMeterModal();
+            renderAll();
+            alert('Есептегіш сәтті қосылды!');
+        }
+
+        // Digital Passport Modal
+        function openPassportModal(homeId) {
+            const home = appState.homes.find(h => h.id === homeId);
+            const p = appState.passports[homeId] || {};
+            document.getElementById('passport-modal-title').innerText = home ? home.title + ' паспорты' : 'Үй паспорты';
+
+            const container = document.getElementById('passport-content');
+            container.innerHTML = `
+                <div class="space-y-4">
+                    <div class="grid grid-cols-2 gap-3 bg-slate-50 p-4 rounded-xl text-xs">
+                        <div><span class="text-slate-500">Қала:</span> <strong class="text-slate-800">${home.city}</strong></div>
+                        <div><span class="text-slate-500">Мекенжай:</span> <strong class="text-slate-800">${home.street}, ${home.apt}</strong></div>
+                        <div><span class="text-slate-500">Лицевой счет:</span> <strong class="text-slate-800">${home.ls}</strong></div>
+                        <div><span class="text-slate-500">Аудан:</span> <strong class="text-slate-800">${p.district || '-'}</strong></div>
+                        <div><span class="text-slate-500">Үй түрі:</span> <strong class="text-slate-800">${p.houseType || '-'}</strong></div>
+                        <div><span class="text-slate-500">Салынған жылы:</span> <strong class="text-slate-800">${p.builtYear || '-'}</strong></div>
+                        <div><span class="text-slate-500">Жалпы аудан:</span> <strong class="text-slate-800">${p.totalArea || '-'}</strong></div>
+                        <div><span class="text-slate-500">Кадастр нөмірі:</span> <strong class="text-slate-800">${p.cadastre || '-'}</strong></div>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-slate-800 text-xs mb-1">Инженерлік жүйелер сипаттамасы</h4>
+                        <p class="text-xs bg-blue-50/50 p-3 rounded-xl text-slate-700">${p.engineering || 'Жоқ'}</p>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-slate-800 text-xs mb-1">Ескертпелер</h4>
+                        <p class="text-xs bg-slate-50 p-3 rounded-xl text-slate-700">${p.notes || 'Жоқ'}</p>
+                    </div>
+                </div>
+            `;
+            document.getElementById('passport-modal').classList.remove('hidden');
+        }
+
+        function closePassportModal() { document.getElementById('passport-modal').classList.add('hidden'); }
+
+        // Account Open & Transfer Modals
+        function openAccountOpenModal() { document.getElementById('account-open-modal').classList.remove('hidden'); }
+        function closeAccountOpenModal() { document.getElementById('account-open-modal').classList.add('hidden'); }
+        function submitAccountOpen(e) {
+            e.preventDefault();
+            closeAccountOpenModal();
+            alert('Лицевой счет ашу өтінімі қабылданды! ЭЦҚ имитациясы сәтті өтті. Өтінім нөмірі: #LS-' + Math.floor(100000 + Math.random() * 900000));
+        }
+
+        function openAccountTransferModal() { document.getElementById('account-transfer-modal').classList.remove('hidden'); }
+        function closeAccountTransferModal() { document.getElementById('account-transfer-modal').classList.add('hidden'); }
+        function submitAccountTransfer(e) {
+            e.preventDefault();
+            closeAccountTransferModal();
+            alert('Меншік иесін ауыстыру өтінімі сәтті жіберілді!');
+        }
+
+        // Leaflet Map Initialization
+        let mapInstance = null;
+        let markerInstance = null;
+
+        function initMap() {
+            const mapEl = document.getElementById('map');
+            if (!mapEl) return;
+            try {
+                mapInstance = L.map('map').setView([51.2333, 51.3667], 13);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '&copy; OpenStreetMap contributors'
+                }).addTo(mapInstance);
+
+                markerInstance = L.marker([51.2333, 51.3667], {draggable: true}).addTo(mapInstance);
+                markerInstance.on('dragend', function(e) {
+                    const pos = markerInstance.getLatLng();
+                    document.getElementById('issue-lat').value = pos.lat;
+                    document.getElementById('issue-lng').value = pos.lng;
+                });
+
+                mapInstance.on('click', function(e) {
+                    markerInstance.setLatLng(e.latlng);
+                    document.getElementById('issue-lat').value = e.latlng.lat;
+                    document.getElementById('issue-lng').value = e.latlng.lng;
+                });
+            } catch(err) {
+                console.error("Map init error:", err);
+            }
+        }
+    </script>
+</body>
+</html>
